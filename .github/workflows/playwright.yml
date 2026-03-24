@@ -1,0 +1,214 @@
+name: QA Automation Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Which suite to run"
+        required: true
+        default: "smoke"
+        type: choice
+        options: [smoke, regression, api, all]
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options: [staging, production]
+
+env:
+  NODE_VERSION: "20"
+  TEST_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+jobs:
+  smoke:
+    name: 🔥 Smoke Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run smoke tests
+        run: npm run test:smoke -- --project=chromium
+        env:
+          BASE_URL: ${{ secrets.BASE_URL || 'https://www.saucedemo.com' }}
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: Upload smoke test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-results
+          path: |
+            allure-results/
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  api:
+    name: 🌐 API Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+
+        run: npx playwright install --with-deps chromium
+
+      - name: Run API tests
+        run: npm run test:api
+        env:
+          CI: "true"
+
+      - name: Upload API test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-results
+          path: |
+            allure-results/
+            test-results/
+          retention-days: 7
+
+  regression:
+    name: 🔄 Regression — ${{ matrix.browser }}
+    runs-on: ubuntu-latest
+    needs: smoke
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.event.inputs.suite == 'regression' ||
+        github.event.inputs.suite == 'all'))
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install ${{ matrix.browser }} browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run regression tests on ${{ matrix.browser }}
+        run: npm run test:regression -- --project=${{ matrix.browser }}
+        env:
+          BASE_URL: ${{ secrets.BASE_URL || 'https://www.saucedemo.com' }}
+          HEADLESS: "true"
+          CI: "true"
+
+      - name: Upload regression results — ${{ matrix.browser }}
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-results-${{ matrix.browser }}
+          path: |
+            allure-results/
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  report:
+    name: 📊 Allure Report
+    runs-on: ubuntu-latest
+    needs: [smoke, api]
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download smoke results
+        uses: actions/download-artifact@v4
+        with:
+          name: smoke-results
+          path: all-results/smoke
+
+      - name: Download API results
+        uses: actions/download-artifact@v4
+        with:
+          name: api-results
+          path: all-results/api
+
+      - name: Merge allure results
+        run: |
+          mkdir -p merged-allure-results
+          find all-results -name "*.json" | xargs -I {} cp {} merged-allure-results/ 2>/dev/null || true
+          find all-results -name "*.png"  | xargs -I {} cp {} merged-allure-results/ 2>/dev/null || true
+
+      - name: Setup Java for Allure CLI
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Install Allure CLI
+        run: npm install -g allure-commandline
+
+      - name: Generate Allure report
+        run: allure generate merged-allure-results --clean -o allure-report
+
+      - name: Upload Allure report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30
+
+      - name: Publish to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./allure-report
