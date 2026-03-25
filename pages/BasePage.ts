@@ -1,9 +1,6 @@
 import { Page, Locator, expect } from "@playwright/test";
-// abstract = this class cannot be instantiated directly
-// It only exists to be extended by real page objects
+
 export abstract class BasePage {
-  // readonly = can be set in constructor, never changed after
-  // protected = accessible in this class AND subclasses, but not outside
   protected readonly page: Page;
 
   constructor(page: Page) {
@@ -22,8 +19,6 @@ export abstract class BasePage {
     return this.page.url();
   }
 
-  // ELEMENT INTERACTIONS (All methods wait for visibility before acting)
-
   async waitForElement(locator: Locator, timeout = 10000): Promise<void> {
     await locator.waitFor({ state: "visible", timeout });
   }
@@ -35,13 +30,13 @@ export abstract class BasePage {
 
   async fillInput(locator: Locator, value: string): Promise<void> {
     await this.waitForElement(locator);
-    await locator.clear(); // Always clear first — avoids appending to existing text
+    await locator.clear();
     await locator.fill(value);
   }
 
   async getText(locator: Locator): Promise<string> {
     await this.waitForElement(locator);
-    return (await locator.textContent()) ?? ""; // ?? = return '' if null
+    return (await locator.textContent()) ?? "";
   }
 
   async isVisible(locator: Locator): Promise<boolean> {
@@ -52,8 +47,6 @@ export abstract class BasePage {
     await this.waitForElement(locator);
     await locator.selectOption(value);
   }
-
-  // ASSERTIONS, Centralized so all pages use the same timeout
 
   async assertURL(expectedURL: string | RegExp): Promise<void> {
     await expect(this.page).toHaveURL(expectedURL);

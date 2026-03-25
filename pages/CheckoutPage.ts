@@ -3,7 +3,6 @@ import { BasePage } from "./BasePage";
 import { CheckoutInfo } from "../config/types";
 
 export class CheckoutPage extends BasePage {
-  // Step One
   readonly firstNameInput: Locator;
   readonly lastNameInput: Locator;
   readonly postalCodeInput: Locator;
@@ -11,14 +10,12 @@ export class CheckoutPage extends BasePage {
   readonly cancelButton: Locator;
   readonly errorMessage: Locator;
 
-  // Step Two
   readonly summaryItems: Locator;
   readonly subtotalLabel: Locator;
   readonly taxLabel: Locator;
   readonly totalLabel: Locator;
   readonly finishButton: Locator;
 
-  // Confirmation
   readonly confirmationHeader: Locator;
   readonly backHomeButton: Locator;
 
@@ -42,13 +39,10 @@ export class CheckoutPage extends BasePage {
     this.backHomeButton = page.locator('[data-test="back-to-products"]');
   }
 
-  // Step One Methods
-
   async assertOnStepOne(): Promise<void> {
     await this.assertVisible(this.firstNameInput);
   }
 
-  // CheckoutInfo type enforces all 3 fields must be provided
   async fillInfo(info: CheckoutInfo): Promise<void> {
     await this.fillInput(this.firstNameInput, info.firstName);
     await this.fillInput(this.lastNameInput, info.lastName);
@@ -62,8 +56,6 @@ export class CheckoutPage extends BasePage {
   async getErrorMessage(): Promise<string> {
     return this.getText(this.errorMessage);
   }
-
-  // Step Two Methods
 
   async assertOnStepTwo(): Promise<void> {
     await this.assertVisible(this.finishButton);
@@ -85,8 +77,6 @@ export class CheckoutPage extends BasePage {
   async clickFinish(): Promise<void> {
     await this.clickElement(this.finishButton);
   }
-
-  // Confirmation Methods
 
   async assertOrderConfirmed(): Promise<void> {
     await this.assertText(this.confirmationHeader, "Thank you for your order!");

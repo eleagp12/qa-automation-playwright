@@ -31,8 +31,6 @@ export class InventoryPage extends BasePage {
     return this.page.locator(".inventory_item_name").allTextContents();
   }
 
-  // Returns the specific inventory_item element matching the name
-  // Returns null if not found — caller decides how to handle it
   async findProductByName(name: string): Promise<Locator | null> {
     const count = await this.inventoryItems.count();
 
@@ -68,7 +66,6 @@ export class InventoryPage extends BasePage {
     return this.getText(item.locator(".inventory_item_price"));
   }
 
-  // SortOption type ensures only 'az'|'za'|'lohi'|'hilo' are accepted
   async sortProducts(option: SortOption): Promise<void> {
     await this.selectOption(this.sortDropdown, option);
   }
