@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  smoke:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qa-smoke
+    environment:
+      - BASE_URL=${BASE_URL:-https://www.saucedemo.com}
+      - TEST_ENV=${TEST_ENV:-staging}
+      - HEADLESS=true
+      - CI=true
+    command: npm run test:smoke
+    volumes:
+      - ./allure-results:/app/allure-results
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+
+  regression:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qa-regression
+    environment:
+      - BASE_URL=${BASE_URL:-https://www.saucedemo.com}
+      - TEST_ENV=${TEST_ENV:-staging}
+      - HEADLESS=true
+      - CI=true
+    command: npm run test:regression
+    volumes:
+      - ./allure-results:/app/allure-results
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qa-api
+    environment:
+      - CI=true
+    command: npm run test:api
+    volumes:
+      - ./allure-results:/app/allure-results
+      - ./test-results:/app/test-results
+
+  all:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qa-all
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    environment:
+      - BASE_URL=${BASE_URL:-https://www.saucedemo.com}
+      - TEST_ENV=${TEST_ENV:-staging}
+      - HEADLESS=true
+      - CI=true
+    command: npm test
+    volumes:
+      - ./allure-results:/app/allure-results
+      - ./playwright-report:/app/playwright-report
+      - ./test-results:/app/test-results
+
+  allure:
+    image: frankescobar/allure-docker-service:latest
+    container_name: qa-allure-server
+    environment:
+      CHECK_RESULTS_EVERY_SECONDS: 1
+      KEEP_HISTORY: 1
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./allure-results:/app/allure-results
+    profiles:
+      - report
