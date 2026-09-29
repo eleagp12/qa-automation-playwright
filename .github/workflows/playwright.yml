@@ -5,12 +5,10 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
-  schedule:
-    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       suite:
-        description: "Which suite to run"
+        description: "Which suite to run"  
         required: true
         default: "smoke"
         type: choice
